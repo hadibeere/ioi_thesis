@@ -35,7 +35,7 @@ class BrainIOIDataset(Dataset):
         """
         2 images will be combined per sample
 
-        Return: combined sample, one bbox and one label
+        Return: combined sample, one bbox as list and one label as list
         """
         loc = idx * 2
         image1 = cv2.imread(self.files[loc], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
@@ -53,7 +53,7 @@ class BrainIOIDataset(Dataset):
         if self.transform:
             sample, bbox = self.transform(sample, bbox)
 
-        return sample, bbox, self.class_labels[loc]
+        return sample, [bbox], [self.class_labels[loc]]
 
     def create_bins(self):
         sub_folders = ["before", "stimulation", "after"]
