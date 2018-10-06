@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import cv2
+import torch
 
 from torch.utils.data import Dataset
 
@@ -11,7 +12,7 @@ from utils.misc import count_files, collect_filenames
 class BrainIOIDataset(Dataset):
     """Frames from intrinsic optical imaging data of the human cortex"""
 
-    def __init__(self, csv_file, root_dir, border=0, transform=None):
+    def __init__(self, csv_file, root_dir, border=0, transform=None, target_transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -19,14 +20,17 @@ class BrainIOIDataset(Dataset):
             border (int): additional border in pixels to expand bounding box
             transform (callable, optional): Optional transform to be applied
                 on a sample.
+            target_transform (callable): Transform bounding boxes from general representation to specific for cnn
+
         """
         self.root_dir = root_dir
         self.annotations = pd.read_csv(csv_file)
-        self.classes = ["no_stimulation", "stimulation"]
+        self.classes = ["BACKGROUND", "no_stimulation", "stimulation"]
         self.border = border  # pixel
         self.files, self.class_labels = self.create_file_list()
-        self.create_bins()
+        self.bins = self.create_bins()
         self.transform = transform
+        self.target_transform = target_transform
 
     def __len__(self):
         return int(len(self.class_labels) / 2)
@@ -53,11 +57,17 @@ class BrainIOIDataset(Dataset):
         if self.transform:
             sample, bbox = self.transform(sample, bbox)
 
-        return sample, [bbox], [self.class_labels[loc]]
+        # create bbox and labels as list, if we should have multiple labels per image
+        boxes = bbox.unsqueeze(0)
+        labels = torch.LongTensor([self.class_labels[loc]])
+        if self.target_transform:
+            boxes, labels = self.target_transform(boxes, labels)
+
+        return sample, boxes, labels
 
     def create_bins(self):
         sub_folders = ["before", "stimulation", "after"]
-        self.bins = [0]
+        bins = [0]
         for i in range(0, len(self.annotations)):
             parent = os.path.join(self.root_dir, self.annotations.iloc[i, 0])
             sum_bin = 0
@@ -68,7 +78,9 @@ class BrainIOIDataset(Dataset):
 
                 sum_bin += count
 
-            self.bins.append(self.bins[i] + sum_bin)
+            bins.append(bins[i] + sum_bin)
+
+        return bins
 
     def create_file_list(self):
         sub_folders = ["before", "stimulation", "after"]
@@ -83,9 +95,9 @@ class BrainIOIDataset(Dataset):
 
                 file_list += files
                 if child == sub_folders[1]:
-                    cur_class = 1
+                    cur_class = 2
                 else:
-                    cur_class = 0
+                    cur_class = 1
 
                 class_labels += [cur_class for _ in range(len(files))]
 
