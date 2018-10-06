@@ -17,6 +17,8 @@ from transforms.preprocessing import TrainAugmentation, TestTransform
 
 from model.multibox_loss import MultiboxLoss
 
+from sampler import ImbalancedDatasetSampler
+
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 
@@ -26,9 +28,6 @@ parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
-
-parser.add_argument('--net', default="vgg16-ssd",
-                    help="The network architecture, it can be fpn-mobilenet-v1-ssd, mobilenet-v1-ssd or vgg16-ssd.")
 parser.add_argument('--freeze_base_net', action='store_true',
                     help="Freeze base net layers.")
 parser.add_argument('--freeze_net', action='store_true',
@@ -166,9 +165,14 @@ if __name__ == '__main__':
     train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=10,
                                     transform=train_transform, target_transform=target_transform)
     logging.info("Train dataset size: {}".format(len(train_dataset)))
-    train_loader = DataLoader(train_dataset, args.batch_size,
-                              num_workers=args.num_workers,
-                              shuffle=True)
+    if args.balance_data:
+        train_loader = DataLoader(train_dataset, args.batch_size,
+                                  num_workers=args.num_workers,
+                                  sampler=ImbalancedDatasetSampler(train_dataset))
+    else:
+        train_loader = DataLoader(train_dataset, args.batch_size,
+                                  num_workers=args.num_workers,
+                                  shuffle=True)
 
     logging.info("Prepare Validation datasets.")
     val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset)
