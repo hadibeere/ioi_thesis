@@ -13,6 +13,7 @@ from config import mobilenetv1_ssd_config
 from utils.misc import str2bool, Timer, freeze_net_layers
 
 from dataset.BrainIOIDataset import BrainIOIDataset
+from transforms.preprocessing import TrainAugmentation, TestTransform
 
 from model.multibox_loss import MultiboxLoss
 
@@ -174,7 +175,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
                             shuffle=False)
-    num_classes = 2
+    num_classes = len(train_dataset.classes)
     logging.info("Build network.")
     net = SSD(num_classes, config=config)
     min_loss = -10000.0
