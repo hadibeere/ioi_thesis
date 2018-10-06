@@ -28,6 +28,9 @@ parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
+parser.add_argument('--log', help='Path of log file. If log is set the logging will be activated else '
+                                  'nothing will be logged.')
+
 parser.add_argument('--freeze_base_net', action='store_true',
                     help="Freeze base net layers.")
 parser.add_argument('--freeze_net', action='store_true',
@@ -152,6 +155,12 @@ def test(loader, net, criterion, device):
 
 
 if __name__ == '__main__':
+    if args.log:
+        logging.basicConfig(
+            filename=args.log,
+            level=logging.INFO,
+            format="%(asctime)s:%(levelname)s:%(message)s"
+        )
     timer = Timer()
     config = mobilenetv1_ssd_config
 
