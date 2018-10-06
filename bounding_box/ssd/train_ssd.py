@@ -156,21 +156,22 @@ if __name__ == '__main__':
     timer = Timer()
     config = mobilenetv1_ssd_config
 
-    #train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std)
+    train_transform = TrainAugmentation(config.image_size, 0.7)
     target_transform = MatchPrior(config.priors, config.center_variance,
                                   config.size_variance, 0.5)
 
-    #test_transform = TestTransform(config.image_size, config.image_mean, config.image_std)
+    test_transform = TestTransform(config.image_size)
 
     logging.info("Prepare training dataset.")
-    train_dataset = BrainIOIDataset(os.path.join(args.dataset,'stimulation.csv'),args.dataset)
+    train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=10,
+                                    transform=train_transform, target_transform=target_transform)
     logging.info("Train dataset size: {}".format(len(train_dataset)))
     train_loader = DataLoader(train_dataset, args.batch_size,
                               num_workers=args.num_workers,
                               shuffle=True)
 
     logging.info("Prepare Validation datasets.")
-    val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset,'stimulation.csv'),args.validation_dataset)
+    val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset)
     logging.info("validation dataset size: {}".format(len(val_dataset)))
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
