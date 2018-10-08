@@ -184,7 +184,8 @@ if __name__ == '__main__':
                                   shuffle=True)
 
     logging.info("Prepare Validation datasets.")
-    val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset)
+    val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset,
+                                  transform=test_transform, target_transform=target_transform)
     logging.info("validation dataset size: {}".format(len(val_dataset)))
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
