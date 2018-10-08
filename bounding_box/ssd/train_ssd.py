@@ -243,6 +243,9 @@ if __name__ == '__main__':
         net.init_from_pretrained_ssd(args.pretrained_ssd)
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
 
+    if torch.cuda.device_count() > 1:
+        net = torch.nn.DataParallel(net)
+
     net.to(DEVICE)
 
     criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
