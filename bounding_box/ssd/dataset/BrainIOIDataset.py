@@ -4,8 +4,8 @@ import numpy as np
 import cv2
 import torch
 
+import transforms.transforms as tr
 from torch.utils.data import Dataset
-
 from utils.misc import count_files, collect_filenames
 
 
@@ -56,6 +56,9 @@ class BrainIOIDataset(Dataset):
 
         if self.transform:
             sample, bbox = self.transform(sample, bbox)
+        else:
+            transform = tr.ToTensor()
+            sample, bbox = transform(sample, bbox)
 
         # create bbox and labels as list, if we should have multiple labels per image
         boxes = bbox.unsqueeze(0)
