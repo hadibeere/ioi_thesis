@@ -25,7 +25,7 @@ class BrainIOIDataset(Dataset):
         """
         self.root_dir = root_dir
         self.annotations = pd.read_csv(csv_file)
-        self.classes = ["BACKGROUND", "no_stimulation", "stimulation"]
+        self.classes = ["BACKGROUND", "stimulation"]
         self.border = border  # pixel
         self.files, self.class_labels = self.create_file_list()
         self.bins = self.create_bins()
@@ -69,7 +69,7 @@ class BrainIOIDataset(Dataset):
         return sample, boxes, labels
 
     def create_bins(self):
-        sub_folders = ["before", "stimulation", "after"]
+        sub_folders = ["stimulation"]
         bins = [0]
         for i in range(0, len(self.annotations)):
             parent = os.path.join(self.root_dir, self.annotations.iloc[i, 0])
@@ -86,7 +86,7 @@ class BrainIOIDataset(Dataset):
         return bins
 
     def create_file_list(self):
-        sub_folders = ["before", "stimulation", "after"]
+        sub_folders = ["stimulation"]
         file_list = []
         class_labels = []
         for i in range(0, len(self.annotations)):
@@ -97,11 +97,7 @@ class BrainIOIDataset(Dataset):
                     files = files[:-1]
 
                 file_list += files
-                if child == sub_folders[1]:
-                    cur_class = 2
-                else:
-                    cur_class = 1
-
+                cur_class = 1
                 class_labels += [cur_class for _ in range(len(files))]
 
         return file_list, class_labels

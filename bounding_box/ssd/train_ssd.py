@@ -8,14 +8,14 @@ import torch
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
-from model.ssd import MatchPrior, SSD
-from config import mobilenetv1_ssd_config
-from utils.misc import str2bool, Timer, freeze_net_layers
+from ssd.model.ssd import MatchPrior, SSD
+from ssd.config import mobilenetv1_ssd_config
+from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
-from dataset.BrainIOIDataset import BrainIOIDataset
-from transforms.preprocessing import TrainAugmentation, TestTransform
+from ssd.dataset.BrainIOIDataset import BrainIOIDataset
+from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
 
-from model.multibox_loss import MultiboxLoss
+from ssd.model.multibox_loss import MultiboxLoss
 
 from sampler import ImbalancedDatasetSampler
 
@@ -109,9 +109,17 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         confidence, locations = net(images)
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + classification_loss
+        logging.info(
+            f"Epoch: {epoch}, Step: {i}, " +
+            f"loss: {loss:.8f}, "
+        )
         loss.backward()
         optimizer.step()
 
+        logging.info(
+            f"Epoch: {epoch}, Step: {i}, " +
+            f"loss.item: {loss.item:.8f}, "
+        )
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
@@ -159,8 +167,8 @@ if __name__ == '__main__':
         logging.basicConfig(
             filename=args.log,
             level=logging.INFO,
-            format="%(asctime)s:%(levelname)s:%(message)s"
-        )
+            format="%(asctime)s:%(levelname)s:%(message)s")
+
     timer = Timer()
     config = mobilenetv1_ssd_config
 
@@ -251,8 +259,7 @@ if __name__ == '__main__':
 
     criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
                              center_variance=0.1, size_variance=0.2, device=DEVICE)
-    optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
 

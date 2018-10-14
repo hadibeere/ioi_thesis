@@ -65,6 +65,16 @@ def collect_filenames(folder, extension):
     Return:
         files (list): Sorted list of file names with absolute path.
     """
-    files = [os.path.join(folder, entry.name) for entry in os.scandir(folder) if
-              entry.is_file() and entry.name.endswith(extension)]
+    files = [os.path.join(folder, entry.name) for entry in os.scandir(folder)
+             if entry.is_file() and entry.name.endswith(extension)]
     return sorted(files)
+
+
+def contains_nan(x):
+    """Check if torch.tensor has any NaN value.
+    Args:
+        x (torch.Tensor): tensor of any type
+
+    Return: True if minimum 0ne NaN value was found
+    """
+    return torch.isnan(x).nonzero().nelement() != 0
