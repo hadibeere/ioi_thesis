@@ -1,5 +1,5 @@
 import random
-import transforms.transforms as tr
+import ssd.transforms.transforms as tr
 
 
 class TrainAugmentation:

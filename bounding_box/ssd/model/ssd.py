@@ -2,11 +2,14 @@ import torch.nn as nn
 import torch
 from torch.nn import Conv2d, Sequential, ModuleList, ReLU
 import numpy as np
-from typing import List, Tuple
+from typing import Tuple
 import torch.nn.functional as F
 
-from utils import box_utils
-from model.mobilenet import MobileNetV1
+from ssd.utils import box_utils, misc
+from ssd.model.mobilenet import MobileNetV1
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SSD(nn.Module):
