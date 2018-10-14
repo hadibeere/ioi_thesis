@@ -4,9 +4,9 @@ import numpy as np
 import cv2
 import torch
 
-import transforms.transforms as tr
+import ssd.transforms.transforms as tr
 from torch.utils.data import Dataset
-from utils.misc import count_files, collect_filenames
+from ssd.utils.misc import count_files, collect_filenames
 
 
 class BrainIOIDataset(Dataset):
