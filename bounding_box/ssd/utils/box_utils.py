@@ -112,7 +112,7 @@ def convert_boxes_to_locations(center_form_boxes, center_form_priors, center_var
         center_form_priors = center_form_priors.unsqueeze(0)
     return torch.cat([
         (center_form_boxes[..., :2] - center_form_priors[..., :2]) / center_form_priors[..., 2:] / center_variance,
-        torch.log(center_form_boxes[..., 2:] / center_form_priors[..., 2:]) / size_variance
+        torch.log((center_form_boxes[..., 2:] / center_form_priors[..., 2:]).clamp(min=1e-8)) / size_variance
     ], dim=center_form_boxes.dim() - 1)
 
 

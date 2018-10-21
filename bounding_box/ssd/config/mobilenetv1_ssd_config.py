@@ -4,8 +4,10 @@ from ssd.utils.box_utils import SSDSpec, SSDBoxSizes, generate_ssd_priors
 
 
 image_size = 300
-image_mean = np.array([127, 127, 127])  # RGB layout
-image_std = 128.0
+mean = 583.6798
+std = 70.0333
+image_mean = [mean, mean]
+image_std = [std, std]
 iou_threshold = 0.45
 center_variance = 0.1
 size_variance = 0.2

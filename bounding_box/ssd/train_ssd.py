@@ -109,17 +109,10 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         confidence, locations = net(images)
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + classification_loss
-        logging.info(
-            f"Epoch: {epoch}, Step: {i}, " +
-            f"loss: {loss:.8f}, "
-        )
+
         loss.backward()
         optimizer.step()
 
-        logging.info(
-            f"Epoch: {epoch}, Step: {i}, " +
-            f"loss.item: {loss.item:.8f}, "
-        )
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
@@ -172,11 +165,11 @@ if __name__ == '__main__':
     timer = Timer()
     config = mobilenetv1_ssd_config
 
-    train_transform = TrainAugmentation(config.image_size, 0.7)
+    train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std, 0.7)
     target_transform = MatchPrior(config.priors, config.center_variance,
                                   config.size_variance, 0.5)
 
-    test_transform = TestTransform(config.image_size)
+    test_transform = TestTransform(config.image_size, config.image_mean, config.image_std)
 
     logging.info("Prepare training dataset.")
     train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=10,
