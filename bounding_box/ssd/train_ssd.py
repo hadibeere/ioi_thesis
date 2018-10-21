@@ -99,6 +99,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     running_loss = 0.0
     running_regression_loss = 0.0
     running_classification_loss = 0.0
+    count = 0
     for i, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
@@ -116,19 +117,18 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
-        if i and i % debug_steps == 0:
-            avg_loss = running_loss / debug_steps
-            avg_reg_loss = running_regression_loss / debug_steps
-            avg_clf_loss = running_classification_loss / debug_steps
-            logging.info(
-                f"Epoch: {epoch}, Step: {i}, " +
-                f"Average Loss: {avg_loss:.4f}, " +
-                f"Average Regression Loss {avg_reg_loss:.4f}, " +
-                f"Average Classification Loss: {avg_clf_loss:.4f}"
-            )
-            running_loss = 0.0
-            running_regression_loss = 0.0
-            running_classification_loss = 0.0
+
+        count += 1
+
+    avg_loss = running_loss / count
+    avg_reg_loss = running_regression_loss / count
+    avg_clf_loss = running_classification_loss / count
+    logging.info(
+        f"Epoch: {epoch}, Step: {i}, " +
+        f"Average Loss: {avg_loss:.4f}, " +
+        f"Average Regression Loss {avg_reg_loss:.4f}, " +
+        f"Average Classification Loss: {avg_clf_loss:.4f}"
+    )
 
 
 def test(loader, net, criterion, device):
@@ -271,6 +271,10 @@ if __name__ == '__main__':
     logging.info(f"Start training from epoch {last_epoch + 1}.")
     for epoch in range(last_epoch + 1, args.num_epochs):
         scheduler.step()
+        logging.info(
+            f"Epoch: {epoch}, " +
+            f"learning rate: {scheduler.get_lr()[0]}, "
+        )
         train(train_loader, net, criterion, optimizer,
               device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
         
