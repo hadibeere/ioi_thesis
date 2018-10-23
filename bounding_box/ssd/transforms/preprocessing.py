@@ -3,7 +3,7 @@ import ssd.transforms.transforms as tr
 
 
 class TrainAugmentation:
-    def __init__(self, size, mean, std, p=0.5):
+    def __init__(self, size, p=0.5):
         """
         Args:
             size (int, tuple): the size the of final image
@@ -12,7 +12,7 @@ class TrainAugmentation:
         self.size = size
         self.probability = p
         self.transform = tr.Compose([tr.Resize(self.size), tr.RandomCrop(self.size), tr.ToPercentCoords(),
-                                     tr.ToTensor(mean, std)])
+                                     tr.ToTensor()])
         self.random_aug = [
             tr.RandomRotate((-359, 359)),
             tr.RandomFlip(),
@@ -41,10 +41,10 @@ class TrainAugmentation:
 
 
 class TestTransform:
-    def __init__(self, size, mean, std):
+    def __init__(self, size):
         self.size = size
         self.transform = tr.Compose([tr.Resize(self.size), tr.RandomCrop(self.size),
-                                     tr.ToPercentCoords(), tr.ToTensor(mean, std)])
+                                     tr.ToPercentCoords(), tr.ToTensor()])
 
     def __call__(self, image, box):
         return self.transform(image, box)

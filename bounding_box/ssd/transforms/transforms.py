@@ -11,22 +11,17 @@ def is_bbox_image_size(bbox, height, width):
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors and normalize image."""
-    def __init__(self, mean, std):
-        self.mean = mean  # list according to number of channels e.g. RGB --> [1,2,3]
-        self.std = std  # same as mean bu with values for standard deviation
-
     def __call__(self, image, bbox):
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.astype(np.float32).transpose((2, 0, 1))
-        sample = torch.from_numpy(image)
-        normalize = torchvision.transforms.Normalize(self.mean, self.std)
+        np.divide(image, 2 ** 16 - 1)  # normalize values to [0-1]
         if isinstance(bbox, np.ndarray):
             new_bbox = torch.from_numpy(bbox)
         else:
             new_bbox = torch.Tensor(bbox)
 
-        return normalize(sample), new_bbox
+        return torch.from_numpy(image), new_bbox
 
 
 class Compose(object):
