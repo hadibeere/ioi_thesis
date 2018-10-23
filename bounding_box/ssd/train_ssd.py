@@ -165,11 +165,11 @@ if __name__ == '__main__':
     timer = Timer()
     config = mobilenetv1_ssd_config
 
-    train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std, 0.7)
+    train_transform = TrainAugmentation(config.image_size, 0.7)
     target_transform = MatchPrior(config.priors, config.center_variance,
                                   config.size_variance, 0.5)
 
-    test_transform = TestTransform(config.image_size, config.image_mean, config.image_std)
+    test_transform = TestTransform(config.image_size)
 
     logging.info("Prepare training dataset.")
     train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=10,
