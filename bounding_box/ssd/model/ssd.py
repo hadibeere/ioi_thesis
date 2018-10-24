@@ -19,7 +19,7 @@ class SSD(nn.Module):
         super(SSD, self).__init__()
 
         self.num_classes = num_classes
-        self.base_net = MobileNetV1(self.num_classes).model
+        self.base_net = MobileNetV1(1024).model
         self.source_layer_indexes = [
             12,
             14,
