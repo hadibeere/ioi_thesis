@@ -15,7 +15,7 @@ class ToTensor(object):
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.astype(np.float32).transpose((2, 0, 1))
-        np.divide(image, 2 ** 16 - 1)  # normalize values to [0-1]
+        image = np.divide(image, 2 ** 16 - 1)  # normalize values to [0-1]
         if isinstance(bbox, np.ndarray):
             new_bbox = torch.from_numpy(bbox)
         else:
