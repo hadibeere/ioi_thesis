@@ -11,8 +11,9 @@ class TrainAugmentation:
         """
         self.size = size
         self.probability = p
-        self.transform = tr.Compose([tr.Resize(self.size), tr.RandomCrop(self.size), tr.ToPercentCoords(),
-                                     tr.ToTensor()])
+        # first resize the smallest side and the crop the rest of the image to avoid stretching of the image
+        self.transform = tr.Compose([tr.RandomCropIoU(), tr.Resize(self.size), tr.RandomCrop(self.size),
+                                     tr.ToPercentCoords(), tr.ToTensor()])
         self.random_aug = [
             tr.RandomRotate((-359, 359)),
             tr.RandomFlip(),
