@@ -3,6 +3,8 @@ import os
 import logging
 import sys
 import itertools
+import random
+import numpy
 
 import torch
 from torch.utils.data import DataLoader
@@ -14,6 +16,8 @@ from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
 from ssd.dataset.BrainIOIDataset import BrainIOIDataset
 from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
+
+import ssd.transforms.transforms as tr
 
 from ssd.model.multibox_loss import MultiboxLoss
 
@@ -30,6 +34,12 @@ parser.add_argument('--balance_data', action='store_true',
 
 parser.add_argument('--log', help='Path of log file. If log is set the logging will be activated else '
                                   'nothing will be logged.')
+
+parser.add_argument('--random_seed', default=456, type=float,
+                    help='Initialize random generator with fixed value to reproduce results')
+
+parser.add_argument('--use_mean', default=True, type=str2bool,
+                    help='Use normalizatian via mean and standard deviation')
 
 parser.add_argument('--freeze_base_net', action='store_true',
                     help="Freeze base net layers.")
@@ -89,6 +99,13 @@ parser.add_argument('--checkpoint_folder', default='models/',
 
 
 args = parser.parse_args()
+
+if args.random_seed:
+    random.seed(args.random_seed)
+    torch.manual_seed(args.random_seed)
+    torch.cuda.manual_seed(args.random_seed)
+    numpy.random.seed(args.random_seed)
+
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
 if args.use_cuda and torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -165,14 +182,18 @@ if __name__ == '__main__':
     timer = Timer()
     config = mobilenetv1_ssd_config
 
-    train_transform = TrainAugmentation(config.image_size, 0.7)
+    normalization = tr.Normalize(2 ** 12 - 1)
+    if args.use_mean:
+        normalization = tr.NormalizeMean(config.image_mean, config.image_std)
+
+    train_transform = TrainAugmentation(config.image_size, normalization, background_color=int(config.mean), p=0.8)
     target_transform = MatchPrior(config.priors, config.center_variance,
                                   config.size_variance, 0.5)
 
-    test_transform = TestTransform(config.image_size)
+    test_transform = TestTransform(config.image_size, normalization)
 
     logging.info("Prepare training dataset.")
-    train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=10,
+    train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=20,
                                     transform=train_transform, target_transform=target_transform)
     logging.info("Train dataset size: {}".format(len(train_dataset)))
     if args.balance_data:
