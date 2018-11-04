@@ -1,29 +1,35 @@
-import random
-import ssd.transforms.transforms as tr
+from ssd.transforms.transforms import *
 
 
 class TrainAugmentation:
-    def __init__(self, size, p=0.5):
+    def __init__(self, size, normalization, background_color, p=0.5):
         """
         Args:
             size (int, tuple): the size the of final image
+            normalization (transform object): transformations for normalization of the image
             p (float): probability for applying transformations
         """
         self.size = size
         self.probability = p
-        # first resize the smallest side and the crop the rest of the image to avoid stretching of the image
-        self.transform = tr.Compose([tr.RandomCropIoU(), tr.Resize(self.size), tr.RandomCrop(self.size),
-                                     tr.ToPercentCoords(), tr.ToTensor()])
+        self.size = size
+        self.transform = Compose([
+            ConvertFromInts(),
+            RandomSampleCrop(),
+            Resize((self.size, self.size)),
+            normalization,
+            ToPercentCoords(),
+            ToTensor()
+        ])
         self.random_aug = [
-            tr.RandomRotate((-359, 359)),
-            tr.RandomFlip(),
-            tr.RandomRescale((0.7, 1.3)),
-            tr.RandomShift(),
-            tr.RandomBrightness(1000),
-            tr.RandomContrast(0.6, 1.4)
+            RandomRotate((-359, 359), background_color),
+            RandomFlip(),
+            RandomRescale((0.9, 2.0)),
+            Expand(background_color),
+            RandomBrightness(400, max=2**12 -1),
+            RandomContrast(0.6, 1.4)
         ]
 
-    def __call__(self, img, box):
+    def __call__(self, img, boxes, labels):
         """Apply random number of Augmentations per image + default transformations
 
         Args:
@@ -31,21 +37,24 @@ class TrainAugmentation:
             box: bounding box in the form of (x1, y1, x2, y2).
         """
         if self.probability < random.random():
-            return self.transform(img, box)
+            return self.transform(img, boxes, labels)
 
         # maximum apply 3 random transformations at once
         max_num_trans = random.randrange(1, 4)
         random.shuffle(self.random_aug)
-        random_compose = tr.Compose(self.random_aug[:max_num_trans])
-        img, box = random_compose(img, box)
-        return self.transform(img, box)
+        random_compose = Compose(self.random_aug[:max_num_trans])
+        img, boxes, labels = random_compose(img, boxes, labels)
+        return self.transform(img, boxes, labels)
 
 
 class TestTransform:
-    def __init__(self, size):
-        self.size = size
-        self.transform = tr.Compose([tr.Resize(self.size), tr.RandomCrop(self.size),
-                                     tr.ToPercentCoords(), tr.ToTensor()])
+    def __init__(self, size, normalization):
+        self.transform = Compose([
+            Resize((size,size)),
+            normalization,
+            ToPercentCoords(),
+            ToTensor()
+        ])
 
-    def __call__(self, image, box):
-        return self.transform(image, box)
+    def __call__(self, image, boxes, labels):
+        return self.transform(image, boxes, labels)

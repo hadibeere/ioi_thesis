@@ -33,7 +33,7 @@ class BrainIOIDataset(Dataset):
         self.target_transform = target_transform
 
     def __len__(self):
-        return int(len(self.class_labels) / 2)
+        return int(len(self.class_labels)/ 2)
 
     def __getitem__(self, idx):
         """
@@ -54,15 +54,13 @@ class BrainIOIDataset(Dataset):
                     self._max_with_border(tips[0][0], tips[1][0], width),
                     self._max_with_border(tips[0][1], tips[1][1], height)]
 
-        if self.transform:
-            sample, bbox = self.transform(sample, bbox)
-        else:
-            transform = tr.ToTensor()
-            sample, bbox = transform(sample, bbox)
+        boxes = np.array([bbox])
+        labels = np.array([self.class_labels[loc]])
 
-        # create bbox and labels as list, if we should have multiple labels per image
-        boxes = bbox.unsqueeze(0)
-        labels = torch.LongTensor([self.class_labels[loc]])
+        if self.transform:
+            sample, boxes, labels = self.transform(sample, boxes, labels)
+        else:
+            print("Error no transform")
         if self.target_transform:
             boxes, labels = self.target_transform(boxes, labels)
 
