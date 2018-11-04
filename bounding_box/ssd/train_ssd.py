@@ -38,7 +38,7 @@ parser.add_argument('--log', help='Path of log file. If log is set the logging w
 parser.add_argument('--random_seed', default=456, type=float,
                     help='Initialize random generator with fixed value to reproduce results')
 
-parser.add_argument('--use_mean', default=True, type=str2bool,
+parser.add_argument('--use_mean', default=False, type=str2bool,
                     help='Use normalizatian via mean and standard deviation')
 
 parser.add_argument('--freeze_base_net', action='store_true',
