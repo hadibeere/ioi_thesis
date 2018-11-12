@@ -111,6 +111,21 @@ if args.use_cuda and torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
 
+def load_checkpoint(model, optimizer, scheduler, filename):
+    # Note: Input model & optimizer, scheduler should be pre-defined.  This routine only updates their states.
+    checkpoint = torch.load(filename)
+    start_epoch = checkpoint['epoch']
+    if torch.cuda.device_count() > 1:
+        model.module.load_state_dict(checkpoint['state_dict'])
+    else:
+        model.load_state_dict(checkpoint['state_dict'])
+
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    scheduler.load_state_dict(checkpoint['scheduler'])
+
+    return model, optimizer, start_epoch, scheduler
+
+
 def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     net.train(True)
     running_loss = 0.0
@@ -254,18 +269,6 @@ if __name__ == '__main__':
             )}
         ]
 
-    timer.start("Load Model")
-    if args.resume:
-        logging.info(f"Resume from the model {args.resume}")
-        net.load(args.resume)
-    elif args.base_net:
-        logging.info(f"Init from base net {args.base_net}")
-        net.init_from_base_net(args.base_net)
-    elif args.pretrained_ssd:
-        logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
-        net.init_from_pretrained_ssd(args.pretrained_ssd)
-    logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
-
     if torch.cuda.device_count() > 1:
         net = torch.nn.DataParallel(net)
 
@@ -289,6 +292,18 @@ if __name__ == '__main__':
         parser.print_help(sys.stderr)
         sys.exit(1)
 
+    timer.start("Load Model")
+    if args.resume:
+        logging.info(f"Resume from the model {args.resume}")
+        model, optimizer, last_epoch, scheduler = load_checkpoint(net, optimizer, scheduler, args.resume)
+    elif args.base_net:
+        logging.info(f"Init from base net {args.base_net}")
+        net.init_from_base_net(args.base_net)
+    elif args.pretrained_ssd:
+        logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
+        net.init_from_pretrained_ssd(args.pretrained_ssd)
+    logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
+
     logging.info(f"Start training from epoch {last_epoch + 1}.")
     for epoch in range(last_epoch + 1, args.num_epochs):
         scheduler.step()
@@ -308,8 +323,12 @@ if __name__ == '__main__':
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
             model_path = os.path.join(args.checkpoint_folder, f"ssd-Epoch-{epoch}-Loss-{val_loss}.pth")
+            net.train()
             if torch.cuda.device_count() > 1:
-                torch.save(net.module.state_dict(), model_path)
+                state = {'epoch': epoch, 'state_dict': net.module.state_dict(),
+                         'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
             else:
-                net.save(model_path)
+                state = {'epoch': epoch, 'state_dict': net.state_dict(),
+                         'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
+            torch.save(state, model_path)
             logging.info(f"Saved model {model_path}")
