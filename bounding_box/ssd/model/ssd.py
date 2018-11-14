@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class SSD(nn.Module):
-    def __init__(self, num_classes: int, is_test=False, config=None, device=None):
+    def __init__(self, num_classes: int, input_channels=3, is_test=False, config=None, device=None):
         """ Create default SSD model.
         """
         super(SSD, self).__init__()
 
         self.num_classes = num_classes
-        self.base_net = MobileNetV1(1024).model
+        self.base_net = MobileNetV1(1024, input_channels=input_channels).model
         self.source_layer_indexes = [
             12,
             14,
@@ -143,7 +143,17 @@ class SSD(nn.Module):
         return confidence, location
 
     def init_from_base_net(self, model):
-        self.base_net.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage), strict=True)
+
+        pretrained_dict = torch.load(model, map_location=lambda storage, loc: storage)
+        model_dict = self.base_net.state_dict()
+
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k[9:]: v for k, v in pretrained_dict.items() if k.startswith("base_net")}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict)
+        # 3. load the new state dict
+        #model.load_state_dict(pretrained_dict)
+        self.base_net.load_state_dict(pretrained_dict, strict=True)
         self.source_layer_add_ons.apply(_xavier_init_)
         self.extras.apply(_xavier_init_)
         self.classification_headers.apply(_xavier_init_)
@@ -167,7 +177,8 @@ class SSD(nn.Module):
         self.regression_headers.apply(_xavier_init_)
 
     def load(self, model):
-        self.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage))
+        state_dict = torch.load(model)
+        self.load_state_dict(state_dict)
 
     def save(self, model_path):
         torch.save(self.state_dict(), model_path)
@@ -186,6 +197,7 @@ class MatchPrior(object):
             gt_boxes = torch.from_numpy(gt_boxes)
         if type(gt_labels) is np.ndarray:
             gt_labels = torch.from_numpy(gt_labels)
+
         boxes, labels = box_utils.assign_priors(gt_boxes, gt_labels,
                                                 self.corner_form_priors, self.iou_threshold)
         boxes = box_utils.corner_form_to_center_form(boxes)

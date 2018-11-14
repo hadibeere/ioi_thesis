@@ -34,6 +34,8 @@ parser.add_argument('--balance_data', action='store_true',
 
 parser.add_argument('--log', help='Path of log file. If log is set the logging will be activated else '
                                   'nothing will be logged.')
+parser.add_argument('--num_channels', default=2, type=int,
+                    help='Set number of input channels to use for network and data')
 
 parser.add_argument('--random_seed', default=456, type=float,
                     help='Initialize random generator with fixed value to reproduce results')
@@ -196,6 +198,7 @@ if __name__ == '__main__':
 
     timer = Timer()
     config = mobilenetv1_ssd_config
+    num_input = args.num_channels
 
     normalization = tr.Normalize(2 ** 12 - 1)
     if args.use_mean:
@@ -209,7 +212,8 @@ if __name__ == '__main__':
 
     logging.info("Prepare training dataset.")
     train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=20,
-                                    transform=train_transform, target_transform=target_transform)
+                                    num_channels=num_input, transform=train_transform,
+                                    target_transform=target_transform)
     logging.info("Train dataset size: {}".format(len(train_dataset)))
     if args.balance_data:
         train_loader = DataLoader(train_dataset, args.batch_size,
@@ -222,14 +226,14 @@ if __name__ == '__main__':
 
     logging.info("Prepare Validation datasets.")
     val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset,
-                                  transform=test_transform, target_transform=target_transform)
+                                  num_channels=num_input, transform=test_transform, target_transform=target_transform)
     logging.info("validation dataset size: {}".format(len(val_dataset)))
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
                             shuffle=False)
     num_classes = len(train_dataset.classes)
     logging.info("Build network.")
-    net = SSD(num_classes, config=config)
+    net = SSD(num_classes, config=config, input_channels=num_input)
     min_loss = -10000.0
     last_epoch = -1
 
