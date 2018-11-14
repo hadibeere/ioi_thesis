@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class MobileNetV1(nn.Module):
-    def __init__(self, num_classes=1024):
+    def __init__(self, num_classes=1024, input_channels=3):
         super(MobileNetV1, self).__init__()
 
         def conv_bn(inp, oup, stride):
@@ -27,7 +27,7 @@ class MobileNetV1(nn.Module):
             )
 
         self.model = nn.Sequential(
-            conv_bn(2, 32, 2),
+            conv_bn(input_channels, 32, 2),
             conv_dw(32, 64, 1),
             conv_dw(64, 128, 2),
             conv_dw(128, 128, 1),
