@@ -21,4 +21,7 @@ specs = [
     SSDSpec(1, 300, SSDBoxSizes(245, 290), [2, 3])
 ]
 
+num_priors = [6,6,6,6,6,6]
+channels_priors = [512, 1024, 512, 256, 256, 256]
+
 priors = generate_ssd_priors(specs, image_size)

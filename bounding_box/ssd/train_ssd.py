@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
 from ssd.model.ssd import MatchPrior, SSD
-from ssd.config import mobilenetv1_ssd_config
 from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
 from ssd.dataset.BrainIOIDataset import BrainIOIDataset
@@ -22,6 +21,9 @@ import ssd.transforms.transforms as tr
 from ssd.model.multibox_loss import MultiboxLoss
 
 from sampler import ImbalancedDatasetSampler
+
+import importlib.util
+
 
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
@@ -99,6 +101,8 @@ parser.add_argument('--use_cuda', default=True, type=str2bool,
 parser.add_argument('--checkpoint_folder', default='models/',
                     help='Directory for saving checkpoint models')
 
+parser.add_argument('--config',
+                    help='Configuration file with priors and other needed values.')
 
 args = parser.parse_args()
 
@@ -107,6 +111,13 @@ if args.random_seed:
     torch.manual_seed(args.random_seed)
     torch.cuda.manual_seed(args.random_seed)
     numpy.random.seed(args.random_seed)
+
+if args.config:
+    spec = importlib.util.spec_from_file_location("module.config",args.config)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+else:
+    import ssd.config.mobilenetv1_ssd_config as config
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
 if args.use_cuda and torch.cuda.is_available():
@@ -197,7 +208,6 @@ if __name__ == '__main__':
             format="%(asctime)s:%(levelname)s:%(message)s")
 
     timer = Timer()
-    config = mobilenetv1_ssd_config
     num_input = args.num_channels
 
     normalization = tr.Normalize(2 ** 12 - 1)
@@ -233,7 +243,8 @@ if __name__ == '__main__':
                             shuffle=False)
     num_classes = len(train_dataset.classes)
     logging.info("Build network.")
-    net = SSD(num_classes, config=config, input_channels=num_input)
+    net = SSD(num_classes, config=config, input_channels=num_input, num_priors=config.num_priors,
+              channels_priors=config.channels_priors)
     min_loss = -10000.0
     last_epoch = -1
 

@@ -11,14 +11,17 @@ from ssd.model.mobilenet import MobileNetV1
 import logging
 logger = logging.getLogger(__name__)
 
+np.set_printoptions(threshold=np.nan)
 
 class SSD(nn.Module):
-    def __init__(self, num_classes: int, input_channels=3, is_test=False, config=None, device=None):
+    def __init__(self, num_classes: int, input_channels=3, num_priors=[6,6,6,6,6,6],
+                 channels_priors=[512, 1024, 512, 256, 256, 256], is_test=False, config=None, device=None):
         """ Create default SSD model.
         """
         super(SSD, self).__init__()
 
         self.num_classes = num_classes
+        self.num_priors = num_priors
         self.base_net = MobileNetV1(1024, input_channels=input_channels).model
         self.source_layer_indexes = [
             12,
@@ -51,25 +54,12 @@ class SSD(nn.Module):
             )
         ])
 
-        self.regression_headers = ModuleList([
-            Conv2d(in_channels=512, out_channels=6 * 4, kernel_size=3, padding=1),
-            Conv2d(in_channels=1024, out_channels=6 * 4, kernel_size=3, padding=1),
-            Conv2d(in_channels=512, out_channels=6 * 4, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * 4, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * 4, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * 4, kernel_size=3, padding=1),
-            # TODO: change to kernel_size=1, padding=0?
-        ])
-
-        self.classification_headers = ModuleList([
-            Conv2d(in_channels=512, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            Conv2d(in_channels=1024, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            Conv2d(in_channels=512, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            Conv2d(in_channels=256, out_channels=6 * num_classes, kernel_size=3, padding=1),
-            # TODO: change to kernel_size=1, padding=0?
-        ])
+        assert(len(num_priors) == len(channels_priors))
+        self.regression_headers = ModuleList()
+        self.classification_headers = ModuleList()
+        for ch, priors in zip(channels_priors, num_priors):
+            self.regression_headers.append(Conv2d(in_channels=ch, out_channels=priors * 4, kernel_size=3, padding=1))
+            self.classification_headers.append(Conv2d(in_channels=ch, out_channels=priors * num_classes, kernel_size=3, padding=1))
 
         self.is_test = is_test
         self.config = config
@@ -152,7 +142,6 @@ class SSD(nn.Module):
         # 2. overwrite entries in the existing state dict
         model_dict.update(pretrained_dict)
         # 3. load the new state dict
-        #model.load_state_dict(pretrained_dict)
         self.base_net.load_state_dict(pretrained_dict, strict=True)
         self.source_layer_add_ons.apply(_xavier_init_)
         self.extras.apply(_xavier_init_)
