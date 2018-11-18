@@ -248,6 +248,10 @@ if __name__ == '__main__':
     min_loss = -10000.0
     last_epoch = -1
 
+    if args.base_net:
+        logging.info(f"Init from base net {args.base_net}")
+        net.init_from_base_net(args.base_net)
+
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr
     if args.freeze_base_net:
@@ -311,9 +315,6 @@ if __name__ == '__main__':
     if args.resume:
         logging.info(f"Resume from the model {args.resume}")
         model, optimizer, last_epoch, scheduler = load_checkpoint(net, optimizer, scheduler, args.resume)
-    elif args.base_net:
-        logging.info(f"Init from base net {args.base_net}")
-        net.init_from_base_net(args.base_net)
     elif args.pretrained_ssd:
         logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
         net.init_from_pretrained_ssd(args.pretrained_ssd)
