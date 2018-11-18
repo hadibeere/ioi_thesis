@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
-from ssd.model.ssd import MatchPrior, SSD
+from ssd.model.var_ssd import MatchPrior, VarSSD
 from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
 from ssd.dataset.BrainIOIDataset import BrainIOIDataset
@@ -243,8 +243,7 @@ if __name__ == '__main__':
                             shuffle=False)
     num_classes = len(train_dataset.classes)
     logging.info("Build network.")
-    net = SSD(num_classes, config=config, input_channels=num_input, num_priors=config.num_priors,
-              channels_priors=config.channels_priors)
+    net = VarSSD(num_classes, config=config, input_channels=num_input)
     min_loss = -10000.0
     last_epoch = -1
 
