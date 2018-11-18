@@ -23,7 +23,7 @@ class MobileNetV1(nn.Module):
 
                 nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True),
+                nn.ReLU(inplace=True)
             )
 
         self.model = nn.Sequential(
