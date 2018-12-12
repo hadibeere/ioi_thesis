@@ -8,7 +8,7 @@ from ssd.utils import box_utils
 
 class MultiboxLoss(nn.Module):
     def __init__(self, priors, iou_threshold, neg_pos_ratio,
-                 center_variance, size_variance, device):
+                 center_variance, size_variance, device, weights=[0.33,1.0]):
         """Implement SSD Multibox Loss.
 
         Basically, Multibox loss combines classification loss
@@ -20,7 +20,8 @@ class MultiboxLoss(nn.Module):
         self.center_variance = center_variance
         self.size_variance = size_variance
         self.priors = priors
-        self.priors.to(device)
+        self.priors = self.priors.to(device)
+        self.weights = torch.Tensor(weights).to(device)
 
     def forward(self, confidence, predicted_locations, labels, gt_locations):
         """Compute classification loss and smooth l1 loss.
@@ -38,7 +39,11 @@ class MultiboxLoss(nn.Module):
             mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
 
         confidence = confidence[mask, :]
-        classification_loss = F.cross_entropy(confidence.reshape(-1, num_classes), labels[mask], size_average=False)
+        #classification_loss = F.binary_cross_entropy(confidence.reshape(-1, num_classes), labels[mask], reduce=False)
+        tmp_conf = confidence.reshape(-1, num_classes)
+        tmp_label = labels[mask]
+
+        classification_loss = F.cross_entropy(tmp_conf, tmp_label, self.weights, size_average=False)
         pos_mask = labels > 0
         predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)
         gt_locations = gt_locations[pos_mask, :].reshape(-1, 4)

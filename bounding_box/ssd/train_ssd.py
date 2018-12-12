@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
-from ssd.model.ssd import MatchPrior, SSD
+from ssd.model.var_ssd import MatchPrior, VarSSD
 from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
 from ssd.dataset.BrainIOIDataset import BrainIOIDataset
@@ -139,7 +139,7 @@ def load_checkpoint(model, optimizer, scheduler, filename):
     return model, optimizer, start_epoch, scheduler
 
 
-def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
+def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, alpha=1.0):
     net.train(True)
     running_loss = 0.0
     running_regression_loss = 0.0
@@ -154,7 +154,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         optimizer.zero_grad()
         confidence, locations = net(images)
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
-        loss = regression_loss + classification_loss
+        loss = regression_loss + alpha * classification_loss
 
         loss.backward()
         optimizer.step()
@@ -243,8 +243,7 @@ if __name__ == '__main__':
                             shuffle=False)
     num_classes = len(train_dataset.classes)
     logging.info("Build network.")
-    net = SSD(num_classes, config=config, input_channels=num_input, num_priors=config.num_priors,
-              channels_priors=config.channels_priors)
+    net = VarSSD(num_classes, config=config, input_channels=num_input)
     min_loss = -10000.0
     last_epoch = -1
 
@@ -294,7 +293,7 @@ if __name__ == '__main__':
     net.to(DEVICE)
 
     criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
-                             center_variance=0.1, size_variance=0.2, device=DEVICE)
+                             center_variance=0.1, size_variance=0.2, device=DEVICE, weights=config.weights)
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
@@ -328,7 +327,7 @@ if __name__ == '__main__':
             f"learning rate: {scheduler.get_lr()[0]}, "
         )
         train(train_loader, net, criterion, optimizer,
-              device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
+              device=DEVICE, debug_steps=args.debug_steps, epoch=epoch, alpha=config.alpha)
         
         if epoch % args.validation_epochs == 0 or epoch == args.num_epochs - 1:
             val_loss, val_regression_loss, val_classification_loss = test(val_loader, net, criterion, DEVICE)
