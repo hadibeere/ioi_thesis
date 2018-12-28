@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from torch.nn import Conv2d, Sequential, ModuleList, ReLU
+from torch.nn import Conv2d, Sequential, ModuleList, ReLU, Dropout2d
 import numpy as np
 from typing import Tuple
 import torch.nn.functional as F
@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 np.set_printoptions(threshold=np.nan)
+
 
 class VarSSD(nn.Module):
     def __init__(self, num_classes: int, input_channels=3, is_test=False, config=None, device=None):
@@ -118,10 +119,12 @@ class VarSSD(nn.Module):
             return confidences, locations
 
     def compute_header(self, i, x):
+        #confidence = torch.nn.functional.dropout2d(self.classification_headers[i](x), p=0.2, training=self.training, inplace=False)
         confidence = self.classification_headers[i](x)
         confidence = confidence.permute(0, 2, 3, 1).contiguous()
         confidence = confidence.view(confidence.size(0), -1, self.num_classes)
 
+        #location = torch.nn.functional.dropout2d(self.regression_headers[i](x), p=0.2, training=self.training, inplace=False)
         location = self.regression_headers[i](x)
         location = location.permute(0, 2, 3, 1).contiguous()
         location = location.view(location.size(0), -1, 4)

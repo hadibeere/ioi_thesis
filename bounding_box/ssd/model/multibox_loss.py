@@ -7,7 +7,7 @@ from ssd.utils import box_utils
 
 
 class MultiboxLoss(nn.Module):
-    def __init__(self, priors, iou_threshold, neg_pos_ratio,
+    def __init__(self, iou_threshold, neg_pos_ratio,
                  center_variance, size_variance, device, weights=[0.33,1.0]):
         """Implement SSD Multibox Loss.
 
@@ -19,8 +19,6 @@ class MultiboxLoss(nn.Module):
         self.neg_pos_ratio = neg_pos_ratio
         self.center_variance = center_variance
         self.size_variance = size_variance
-        self.priors = priors
-        self.priors = self.priors.to(device)
         self.weights = torch.Tensor(weights).to(device)
 
     def forward(self, confidence, predicted_locations, labels, gt_locations):
@@ -30,7 +28,7 @@ class MultiboxLoss(nn.Module):
             confidence (batch_size, num_priors, num_classes): class predictions.
             locations (batch_size, num_priors, 4): predicted locations.
             labels (batch_size, num_priors): real labels of all the priors.
-            boxes (batch_size, num_priors, 4): real boxes corresponding all the priors.
+            gt_locations (batch_size, num_priors, 4): real boxes corresponding all the priors.
         """
         num_classes = confidence.size(2)
         with torch.no_grad():
@@ -39,7 +37,6 @@ class MultiboxLoss(nn.Module):
             mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
 
         confidence = confidence[mask, :]
-        #classification_loss = F.binary_cross_entropy(confidence.reshape(-1, num_classes), labels[mask], reduce=False)
         tmp_conf = confidence.reshape(-1, num_classes)
         tmp_label = labels[mask]
 
