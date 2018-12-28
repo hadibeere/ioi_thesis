@@ -119,7 +119,7 @@ if args.config:
 else:
     import ssd.config.mobilenetv1_ssd_config as config
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() and args.use_cuda else "cpu")
 if args.use_cuda and torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
@@ -153,6 +153,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, 
 
         optimizer.zero_grad()
         confidence, locations = net(images)
+
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + alpha * classification_loss
 
@@ -292,7 +293,7 @@ if __name__ == '__main__':
 
     net.to(DEVICE)
 
-    criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
+    criterion = MultiboxLoss(iou_threshold=0.5, neg_pos_ratio=3,
                              center_variance=0.1, size_variance=0.2, device=DEVICE, weights=config.weights)
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "

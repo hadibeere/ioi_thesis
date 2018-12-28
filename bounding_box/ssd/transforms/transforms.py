@@ -8,6 +8,9 @@ import numpy as np
 import types
 import random
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def adjust_bbox(box):
     return np.array([min(box[0],box[2]), min(box[1],box[3]), max(box[0],box[2]), max(box[1],box[3])])
@@ -88,7 +91,7 @@ class SubtractMeans(object):
 
 class ToAbsoluteCoords(object):
     def __call__(self, image, boxes=None, labels=None):
-        height, width, channels = image.shape
+        height, width = image.shape[:2]
         boxes[:, 0] *= width
         boxes[:, 2] *= width
         boxes[:, 1] *= height
@@ -99,7 +102,7 @@ class ToAbsoluteCoords(object):
 
 class ToPercentCoords(object):
     def __call__(self, image, boxes=None, labels=None):
-        height, width, channels = image.shape
+        height, width  = image.shape[:2]
         boxes = boxes.astype(np.float32)
         boxes[:, 0] /= width
         boxes[:, 2] /= width
@@ -136,7 +139,7 @@ class RandomSampleCrop(object):
         )
 
     def __call__(self, image, boxes=None, labels=None):
-        height, width, _ = image.shape
+        height, width = image.shape[:2]
         while True:
             # randomly choose a mode
             mode = np.random.choice(self.sample_options)
@@ -174,8 +177,10 @@ class RandomSampleCrop(object):
                     continue
 
                 # cut the crop from the image
-                current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],
-                                              :]
+                if current_image.ndim == 2:
+                    current_image = current_image[rect[1]:rect[3], rect[0]:rect[2]]
+                else:
+                    current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],:]
 
                 # keep overlap with gt box IF center in sampled patch
                 centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
@@ -223,6 +228,16 @@ class Normalize(object):
         return image, boxes, labels
 
 
+class DeNormalize(object):
+    def __init__(self, depth):
+        self.depth = depth
+
+    def __call__(self, image, boxes=None, labels=None):
+        image = image.astype(np.float32)
+        image = np.multiply(image, self.depth)
+        return image, boxes, labels
+
+
 class NormalizeMean(object):
     def __init__(self, mean, std):
         self.mean = mean
@@ -237,12 +252,31 @@ class NormalizeMean(object):
 
 
 class ToTensor(object):
-    """Convert ndarrays in sample to Tensors and normalize image."""
+    """Convert ndarrays in sample to Tensors."""
     def __call__(self, image, bbox, labels):
         # numpy image: H x W x C
         # torch image: C X H X W
-        image = image.astype(np.float32).transpose((2, 0, 1))
+        if image.ndim == 2:
+            image = np.expand_dims(image.astype(np.float32), axis=0)  # C x H x W
+        else:
+            image = image.astype(np.float32).transpose((2, 0, 1))
         return torch.from_numpy(image), bbox, labels
+
+
+class FromTensorToNumpy(object):
+    """Convert tensors to ndarrays"""
+    def __call__(self, image, bbox, labels):
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        img = image.numpy().transpose((1, 2, 0))
+        box = None
+        lab = None
+        if bbox:
+            box = bbox.numpy()
+        if labels:
+            lab = labels.numpy()
+
+        return img, box, lab
 
 
 class Rotate(object):
@@ -253,7 +287,7 @@ class Rotate(object):
         fill_color (int): Fill Background with given color
     """
 
-    def __init__(self, angle, fill_color):
+    def __init__(self, angle, fill_color=0):
         assert isinstance(angle, int)
         self.angle = angle
         assert isinstance(fill_color, int)
@@ -264,9 +298,10 @@ class Rotate(object):
            bboxes (ndarray): bounding boxes (N,4) with (xmin,ymin,xmax,ymax)
         """
         rows, cols = image.shape[:2]
-        new_bboxes = bboxes
+        new_bboxes = np.copy(bboxes)
         transformation_matrix = cv2.getRotationMatrix2D((cols / 2, rows / 2), self.angle, 1)
-        trans_image = cv2.warpAffine(image, transformation_matrix, (cols, rows))
+        trans_image = cv2.warpAffine(image, transformation_matrix, (cols, rows),borderMode=cv2.BORDER_CONSTANT,
+                           borderValue=self.fill_color)
         for i in range(new_bboxes.shape[0]):
             xmin = bboxes[i, 0]
             xmax = bboxes[i, 2]
@@ -275,6 +310,10 @@ class Rotate(object):
             box_4_corner = np.array([[[xmin, ymin], [xmin, ymax], [xmax, ymin], [xmax, ymax]]])
             trans_marks = cv2.transform(box_4_corner, transformation_matrix)[0]
             new_bboxes[i, :] = self.get_2_corner_form(trans_marks.reshape(4, 2))
+
+        logger.info(
+            f"Rotate angle: {self.angle}"
+        )
 
         return trans_image, new_bboxes, labels
 
@@ -317,7 +356,7 @@ class Resize(object):
         assert isinstance(output_size, (int, tuple))
         self.output_size = output_size
 
-    def __call__(self, image, bboxes, labels):
+    def __call__(self, image, bboxes=None, labels=None):
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
             if h > w:
@@ -330,6 +369,9 @@ class Resize(object):
         new_h, new_w = int(new_h), int(new_w)
 
         new_image = cv2.resize(image, (new_w, new_h))
+
+        if bboxes is None:
+            return new_image, bboxes, labels
 
         new_bboxes = np.copy(bboxes)
         ratio_w = new_w / w
@@ -463,7 +505,7 @@ class Expand(object):
         self.mean = mean
 
     def __call__(self, image, boxes, labels):
-        height, width, depth = image.shape
+        height, width = image.shape[:2]
         ratio = random.uniform(1, 4)
         left = random.uniform(0, width*ratio - width)
         top = random.uniform(0, height*ratio - height)
@@ -481,3 +523,28 @@ class Expand(object):
         boxes[:, 2:] += (int(left), int(top))
 
         return image, boxes, labels
+
+
+class SquarePad(object):
+    """Pad image to be square
+    """
+
+    def __init__(self, fill=0):
+        self.fill = fill
+
+    def __call__(self, image, bbox, labels):
+        height, width = image.shape[:2]
+        desired_size = max(height, width)
+
+        delta_w = desired_size - width
+        delta_h = desired_size - height
+        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+        left, right = delta_w // 2, delta_w - (delta_w // 2)
+        new_img = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT,
+                                     value=self.fill)
+        bbox[:, 0] += left
+        bbox[:, 1] += top
+        bbox[:, 2] += right
+        bbox[:, 3] += bottom
+        return new_img, bbox, labels
+

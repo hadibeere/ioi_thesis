@@ -1,4 +1,5 @@
 from ssd.transforms.transforms import *
+import random
 
 
 class TrainAugmentation:
@@ -25,7 +26,7 @@ class TrainAugmentation:
             RandomFlip(),
             RandomRescale((0.9, 2.0)),
             Expand(background_color),
-            RandomBrightness(400, max=2**12 -1),
+            RandomBrightness(1000, max=2**12 -1),
             RandomContrast(0.6, 1.4)
         ]
 
@@ -40,10 +41,14 @@ class TrainAugmentation:
             return self.transform(img, boxes, labels)
 
         # maximum apply 3 random transformations at once
-        max_num_trans = random.randrange(1, 4)
-        random.shuffle(self.random_aug)
-        random_compose = Compose(self.random_aug[:max_num_trans])
-        img, boxes, labels = random_compose(img, boxes, labels)
+        #max_num_trans = random.randrange(1, 4)
+        #random.shuffle(self.random_aug)
+        #random_compose = Compose(self.random_aug[:max_num_trans])
+        #img, boxes, labels = random_compose(img, boxes, labels)
+        for aug in self.random_aug:
+            if random.random() < .5:
+                img, boxes, labels = aug(img, boxes, labels)
+
         return self.transform(img, boxes, labels)
 
 
@@ -58,3 +63,16 @@ class TestTransform:
 
     def __call__(self, image, boxes, labels):
         return self.transform(image, boxes, labels)
+
+
+class PredictionTransform:
+    def __init__(self, size, normalization):
+        self.transform = Compose([
+            Resize((size,size)),
+            normalization,
+            ToTensor()
+        ])
+
+    def __call__(self, image):
+        image, _, _ = self.transform(image)
+        return image
