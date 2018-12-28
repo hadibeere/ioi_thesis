@@ -34,7 +34,6 @@ class FocalLoss(nn.Module):
 
         pt = torch.exp(-pt_log)
         focal_loss = self.alpha * (1 - pt) ** self.gamma * pt_log
-        print(focal_loss.shape)
         total_loss = focal_loss.sum(dim=1)  # should be normalized by number of assigned anchors per ground truth --> always 1 or 0
         object_box_inds = torch.nonzero(targets[:, :, 4] > 0).view(-1, 2)
         if object_box_inds is None:
