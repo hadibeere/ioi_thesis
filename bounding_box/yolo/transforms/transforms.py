@@ -1,6 +1,7 @@
+import random
 import numpy as np
 import cv2
-from ssd.transforms.transforms import jaccard_numpy, DeNormalize, FromTensorToNumpy, Compose
+from ssd.transforms.transforms import jaccard_numpy, DeNormalize, FromTensorToNumpy, Compose, ToAbsoluteCoords
 from yolo.util.bbox import corner_to_center, center_to_corner, bbox_iou
 import matplotlib
 import os
@@ -11,7 +12,7 @@ class ToRelativeBoxWithLabel(object):
     The coordinates are relative to the image size.
     """
     def __call__(self, image, bbox, labels):
-        h, w, _ = image.shape
+        h, w = image.shape[:2]
         dh = 1.0 / h
         dw = 1.0 / w
         new_boxes = np.zeros((bbox.shape[0],5))
@@ -40,24 +41,23 @@ class RandomSquareCrop(object):
             labels (Tensor): the class labels for each bbox
     """
     def __init__(self):
-        self.sample_options = (
+        self.sample_options = [
             # using entire original input image
             #None,
             # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
             #(0.1, None),
             #(0.3, None),
-            (0.7, None),
+            #(0.7, None),
             (0.9, None),
             # randomly sample a patch
-            (None, None)
-        )
+            (1.0, None)
+        ]
 
     def __call__(self, image, boxes=None, labels=None):
-        height, width, _ = image.shape
+        height, width = image.shape[:2]
         while True:
             # randomly choose a mode
-            mode = np.random.choice(self.sample_options)
-            print("crop mode: " + str(mode))
+            mode = random.choice(self.sample_options)
             if mode is None:
                 return image, boxes, labels
 
@@ -93,8 +93,10 @@ class RandomSquareCrop(object):
                     continue
 
                 # cut the crop from the image
-                current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],
-                                              :]
+                if current_image.ndim == 2:
+                    current_image = current_image[rect[1]:rect[3], rect[0]:rect[2]]
+                else:
+                    current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],:]
 
                 # keep overlap with gt box IF center in sampled patch
                 centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
@@ -139,7 +141,7 @@ class SquarePad(object):
         self.fill = fill
 
     def __call__(self, image, bbox, labels):
-        height, width, _ = image.shape
+        height, width = image.shape[:2]
         desired_size = max(height, width)
 
         delta_w = desired_size - width
@@ -355,19 +357,24 @@ class MatchAnchors(object):
 
 
 class PlotImg(object):
-    def __init__(self, folder):
-        self.counter = 0
+    def __init__(self, folder, with_legend=False, dpi=150):
         self.folder = folder
+        self.with_legend = with_legend
+        self.dpi = dpi
 
     def __call__(self, image, boxes=None, labels=None):
         convert = Compose([FromTensorToNumpy(), DeNormalize(2**12-1)])
         img, _, _ = convert(image.clone())
         if isinstance(boxes, np.ndarray):
-            box = boxes.copy()[0]
+            box = boxes.copy()
+            box_transform = ToAbsoluteCoords()
+            _, box, _ = box_transform(img, box)
             self.show_frames(img[:,:,0],box)
-            self.counter += 1
 
         return image, boxes, labels
+
+    def count_existing_files(self, path):
+        return len(next(os.walk(path))[2])
 
     def lower_form(self, bbox):
         coord = (bbox[0], bbox[1])
@@ -375,31 +382,23 @@ class PlotImg(object):
         height = bbox[3] - bbox[1]
         return coord, width, height
 
-    def show_frames(self, frame, gt_box):
+    def show_frames(self, frame, gt_boxes):
         """Show image with landmarks"""
         max_c = 2 ** 12 - 1
         fig, ax = matplotlib.pyplot.subplots()
         ax.imshow(frame, cmap='gray', vmin=0, vmax=max_c)
-        # xy, width, height with xy lower left
-        coord, width, height = self.lower_form(gt_box)
-        rect = matplotlib.patches.Rectangle(coord, width, height, linewidth=2, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-        colors = ['blue', 'green', 'cyan', 'yellow']
-        i = 0
-        #for box in boxes:
-        #    coord, width, height = lower_form(to_box(box))
-        #    rect = patches.Rectangle(coord, width, height, linewidth=2, edgecolor=colors[i], facecolor='none')
-        #    ax.add_patch(rect)
-        #    i += 1
+        colors = ['red','blue', 'green', 'cyan', 'yellow']
+        for gt_box in gt_boxes:
+            # xy, width, height with xy lower left
+            coord, width, height = self.lower_form(gt_box)
+            rect = matplotlib.patches.Rectangle(coord, width, height, linewidth=2, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
 
-        items = ["ground truth"]
-        #for j in range(i):
-        #    items.append("box top " + str(j + 1))
+        if self.with_legend:
+            items = ["ground truth"]
+            ax.legend(items, title="Legend", loc="upper left", bbox_to_anchor=(1, 0, 0.5, 1))
 
-        ax.legend(items, title="Legend", loc="upper left",
-                  bbox_to_anchor=(1, 0, 0.5, 1))
-
-        fig.savefig(os.path.join(self.folder, "frame_" + str(self.counter) + ".png"), dpi=150,
-                                  bbox_inches='tight')
+        fig.savefig(os.path.join(self.folder, "frame_" + str(self.count_existing_files(self.folder)) + ".png"),
+                    dpi=self.dpi,bbox_inches='tight')
         matplotlib.pyplot.clf()
         matplotlib.pyplot.cla()

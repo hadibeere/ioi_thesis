@@ -510,12 +510,20 @@ class Expand(object):
         left = random.uniform(0, width*ratio - width)
         top = random.uniform(0, height*ratio - height)
 
-        expand_image = np.zeros(
-            (int(height*ratio), int(width*ratio), depth),
-            dtype=image.dtype)
-        expand_image[:, :, :] = self.mean
+        if len(image.shape) == 3:
+            depth = image.shape[2]
+            expand_image = np.zeros(
+                (int(height*ratio), int(width*ratio), depth),
+                dtype=image.dtype)
+            expand_image[:, :, :] = self.mean
+        else:
+            expand_image = np.zeros(
+                (int(height * ratio), int(width * ratio)),
+                dtype=image.dtype)
+            expand_image[:, :] = self.mean
+
         expand_image[int(top):int(top + height),
-                     int(left):int(left + width)] = image
+                    int(left):int(left + width)] = image
         image = expand_image
 
         boxes = boxes.copy()

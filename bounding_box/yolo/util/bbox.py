@@ -6,7 +6,7 @@ import random
 import numpy as np
 import cv2
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def confidence_filter(result, confidence):
@@ -68,7 +68,7 @@ def sanity_fix(box):
     return box
 
 
-def bbox_iou(box1, box2, lib="torch"):
+def bbox_iou(box1, box2, lib="torch", device="cuda"):
     """
     Returns the IoU of two bounding boxes
     """
