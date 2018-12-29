@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from ssd.model.var_ssd import MatchPrior, VarSSD
 from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 
-from ssd.dataset.BrainIOIDataset import BrainIOIDataset
+from ssd.dataset.BrainIOIDataset import BrainIOIDataset, IOIDatasetETips
 from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
 
 import ssd.transforms.transforms as tr
@@ -31,6 +31,7 @@ parser = argparse.ArgumentParser(
 
 
 parser.add_argument('--dataset', help='Dataset directory path')
+parser.add_argument('--gt', default='area_tips', help="Choose ground truth type 'area_tips', 'one_tip', 'two_tips'")
 parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
@@ -39,6 +40,9 @@ parser.add_argument('--log', help='Path of log file. If log is set the logging w
                                   'nothing will be logged.')
 parser.add_argument('--num_channels', default=2, type=int,
                     help='Set number of input channels to use for network and data')
+parser.add_argument('--border', default=20, type=float,
+                    help='Set border attribute for ground truth. (area_tips uses absolute pixel value, for '
+                         'the others it\'s the percentage of the distance between tips e.g 0.5 for 50% of the distance )')
 
 parser.add_argument('--random_seed', default=456, type=float,
                     help='Initialize random generator with fixed value to reproduce results')
@@ -228,9 +232,26 @@ if __name__ == '__main__':
     test_transform = TestTransform(config.image_size, normalization)
 
     logging.info("Prepare training dataset.")
-    train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=20,
-                                    num_channels=num_input, transform=train_transform,
-                                    target_transform=target_transform)
+    if args.gt == 'area_tips':
+        train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=args.border,
+                                        num_channels=num_input, transform=train_transform,
+                                        target_transform=target_transform)
+        val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset,
+                                      num_channels=num_input, border=args.border, transform=test_transform,
+                                      target_transform=target_transform)
+    else:
+        if args.gt == 'one_tip':
+            use_all = False
+        else:  # 'two_tips'
+            use_all = True
+
+        train_dataset = IOIDatasetETips(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, use_all=use_all,
+                                        border=args.border, num_channels=num_input, transform=train_transform,
+                                        target_transform=target_transform)
+        val_dataset = IOIDatasetETips(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, use_all=use_all,
+                                      border=args.border, num_channels=num_input, transform=test_transform,
+                                      target_transform=target_transform)
+
     logging.info("Train dataset size: {}".format(len(train_dataset)))
     if args.balance_data:
         train_loader = DataLoader(train_dataset, args.batch_size,
@@ -241,9 +262,6 @@ if __name__ == '__main__':
                                   num_workers=args.num_workers,
                                   shuffle=True)
 
-    logging.info("Prepare Validation datasets.")
-    val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset,
-                                  num_channels=num_input, transform=test_transform, target_transform=target_transform)
     logging.info("validation dataset size: {}".format(len(val_dataset)))
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
