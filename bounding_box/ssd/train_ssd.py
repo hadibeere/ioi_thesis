@@ -19,6 +19,7 @@ from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
 import ssd.transforms.transforms as tr
 
 from ssd.model.multibox_loss import MultiboxLoss
+from ssd.utils.metrics import StatCollector
 
 from sampler import ImbalancedDatasetSampler
 
@@ -145,6 +146,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, 
     running_regression_loss = 0.0
     running_classification_loss = 0.0
     count = 0
+    collector = StatCollector(300, config)
     for i, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
@@ -153,7 +155,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, 
 
         optimizer.zero_grad()
         confidence, locations = net(images)
-
+        collector(confidence, locations, labels, boxes)
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + alpha * classification_loss
 
@@ -173,7 +175,9 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, 
         f"Epoch: {epoch}, Step: {i}, " +
         f"Average Loss: {avg_loss:.4f}, " +
         f"Average Regression Loss {avg_reg_loss:.4f}, " +
-        f"Average Classification Loss: {avg_clf_loss:.4f}"
+        f"Average Classification Loss: {avg_clf_loss:.4f}" +
+        f"Precision: {collector.precision():.3f}" +
+        f"Recall: {collector.recall():.3f}"
     )
 
 
@@ -183,6 +187,7 @@ def test(loader, net, criterion, device):
     running_regression_loss = 0.0
     running_classification_loss = 0.0
     num = 0
+    collector = StatCollector(300, config)
     for _, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
@@ -192,13 +197,14 @@ def test(loader, net, criterion, device):
 
         with torch.no_grad():
             confidence, locations = net(images)
+            collector(confidence, locations, labels, boxes)
             regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)
             loss = regression_loss + classification_loss
 
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
-    return running_loss / num, running_regression_loss / num, running_classification_loss / num
+    return running_loss / num, running_regression_loss / num, running_classification_loss / num, collector.precision(), collector.recall()
 
 
 if __name__ == '__main__':
@@ -331,12 +337,14 @@ if __name__ == '__main__':
               device=DEVICE, debug_steps=args.debug_steps, epoch=epoch, alpha=config.alpha)
         
         if epoch % args.validation_epochs == 0 or epoch == args.num_epochs - 1:
-            val_loss, val_regression_loss, val_classification_loss = test(val_loader, net, criterion, DEVICE)
+            val_loss, val_regression_loss, val_classification_loss, precision, recall = test(val_loader, net, criterion, DEVICE)
             logging.info(
                 f"Epoch: {epoch}, " +
                 f"Validation Loss: {val_loss:.4f}, " +
                 f"Validation Regression Loss {val_regression_loss:.4f}, " +
-                f"Validation Classification Loss: {val_classification_loss:.4f}"
+                f"Validation Classification Loss: {val_classification_loss:.4f}" +
+                f"Validation Precision: {precision:.3f}" +
+                f"Validation Recall: {recall:.3f}"
             )
             model_path = os.path.join(args.checkpoint_folder, f"ssd-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.train()
