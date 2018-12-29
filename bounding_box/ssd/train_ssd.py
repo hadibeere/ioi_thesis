@@ -317,8 +317,9 @@ if __name__ == '__main__':
 
     net.to(DEVICE)
 
-    criterion = MultiboxLoss(iou_threshold=0.5, neg_pos_ratio=3,
-                             center_variance=0.1, size_variance=0.2, device=DEVICE, weights=config.weights)
+    criterion = MultiboxLoss(iou_threshold=config.iou_threshold, neg_pos_ratio=config.neg_pos_ratio,
+                             center_variance=config.center_variance, size_variance=config.size_variance, device=DEVICE,
+                             weights=config.weights)
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
