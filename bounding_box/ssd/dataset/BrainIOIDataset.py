@@ -334,7 +334,7 @@ class IOIDatasetETips(Dataset):
 
     def get_image(self, idx):
         image = cv2.imread(self.files[idx], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-        if not self.use_all:
+        if self.num_channels == 1:
             return image
 
         return np.dstack([image for i in range(self.num_channels)])
