@@ -46,6 +46,8 @@ parser.add_argument('--border', default=20, type=float,
 
 parser.add_argument('--random_seed', default=456, type=float,
                     help='Initialize random generator with fixed value to reproduce results')
+parser.add_argument('--prob_aug', default=0.5, type=float,
+                    help='Probability for data augmentations')
 
 parser.add_argument('--use_mean', default=False, type=str2bool,
                     help='Use normalizatian via mean and standard deviation')
@@ -225,9 +227,9 @@ if __name__ == '__main__':
     if args.use_mean:
         normalization = tr.NormalizeMean(config.image_mean, config.image_std)
 
-    train_transform = TrainAugmentation(config.image_size, normalization, background_color=int(config.mean), p=0.8)
+    train_transform = TrainAugmentation(config.image_size, normalization, background_color=int(config.mean), p=args.prob_aug)
     target_transform = MatchPrior(config.priors, config.center_variance,
-                                  config.size_variance, 0.5)
+                                  config.size_variance, config.iou_threshold)
 
     test_transform = TestTransform(config.image_size, normalization)
 
