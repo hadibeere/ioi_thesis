@@ -250,7 +250,7 @@ if __name__ == '__main__':
         train_dataset = IOIDatasetETips(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, use_all=use_all,
                                         border=args.border, num_channels=num_input, transform=train_transform,
                                         target_transform=target_transform)
-        val_dataset = IOIDatasetETips(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, use_all=use_all,
+        val_dataset = IOIDatasetETips(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset, use_all=use_all,
                                       border=args.border, num_channels=num_input, transform=test_transform,
                                       target_transform=target_transform)
 
