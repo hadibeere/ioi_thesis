@@ -311,10 +311,6 @@ class Rotate(object):
             trans_marks = cv2.transform(box_4_corner, transformation_matrix)[0]
             new_bboxes[i, :] = self.get_2_corner_form(trans_marks.reshape(4, 2))
 
-        logger.info(
-            f"Rotate angle: {self.angle}"
-        )
-
         return trans_image, new_bboxes, labels
 
     def get_2_corner_form(self, box):
