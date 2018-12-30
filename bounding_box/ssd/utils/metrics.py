@@ -19,8 +19,9 @@ class StatCollector(object):
 
     def __call__(self, prediction_conf, prediction_loc, target_conf, target_loc):
         with torch.no_grad():
-            abs_target = torch.cat((box_utils.center_form_to_corner_form(target_loc), target_conf.float()[:,:,None]), 2).to(self.device)
-            abs_prediction = self.convert_to_absolute(prediction_conf, prediction_loc).to(self.device)
+            abs_target = self.convert_to_absolute(target_conf.float()[:,:,None], target_loc).to(self.device)
+            abs_prediction = self.convert_to_absolute(torch.softmax(prediction_conf, dim=2),
+                                                      prediction_loc).to(self.device)
             batch_size = prediction_conf.shape[0]
             for batch in range(batch_size):
                 # get stats for each image in batch
@@ -50,30 +51,31 @@ class StatCollector(object):
                 # gather stats
 
                 positiv_samples = torch.nonzero(abs_target[batch, :, 4] > 0.5)  # get all class gt labels
-                gt = abs_target[batch, positiv_samples[:], :]
+                gt = abs_target[batch, positiv_samples, :].view(-1, 5)
                 if gt.shape[0] == 0:
                     self.false_positives += pred.shape[0]
                 elif pred.shape[0] == 0:
-                    self.false_negatives += 1
+                    self.false_negatives += len(gt)
                 else:
-                    gt_box = gt[0,0:4]
-                    ious = bbox_iou(gt_box, pred[:,0:4], device=self.device)
-                    pos_matches = torch.nonzero(ious > self.iou_threshold)
-                    num_matches = len(pos_matches)
-                    false_matches = len(ious) - num_matches
-                    if num_matches == 0:
-                        self.false_negatives += 1
-                    else:
-                        self.true_positives += num_matches
-                    self.false_positives += false_matches
+                    num_pos_matches = 0
+                    for gt_box in gt:
+                        ious = bbox_iou(gt_box[0:4].unsqueeze(0), pred[:,0:4], device=self.device)
+                        pos_matches = torch.nonzero(ious > self.iou_threshold)
+                        num_pos_matches += len(pos_matches)
+                        if num_pos_matches == 0:
+                            self.false_negatives += 1
+
+                    num_false_matches = len(pred) - num_pos_matches
+                    self.true_positives += num_pos_matches
+                    self.false_positives += num_false_matches
 
     def convert_to_absolute(self, conf, locations):
-        confidences = torch.softmax(conf, dim=2).to(self.device)
+        confidence = conf.to(self.device)
         boxes = box_utils.convert_locations_to_boxes(
             locations.to(self.device), self.config.priors.to(self.device), self.config.center_variance, self.config.size_variance
         )
         boxes = box_utils.center_form_to_corner_form(boxes)
-        return torch.cat((boxes, confidences), 2)
+        return torch.cat((boxes, confidence), 2)
 
     def precision(self):
         return self.true_positives / (self.true_positives + self.false_positives)
