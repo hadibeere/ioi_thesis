@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
 from ssd.model.var_ssd import MatchPrior, VarSSD
-from ssd.utils.misc import str2bool, Timer, freeze_net_layers
+from ssd.utils.misc import str2bool, Timer, freeze_net_layers, SavePointManager
 
 from ssd.dataset.BrainIOIDataset import BrainIOIDataset, IOIDatasetETips
 from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
@@ -107,9 +107,11 @@ parser.add_argument('--use_cuda', default=True, type=str2bool,
 
 parser.add_argument('--checkpoint_folder', default='models/',
                     help='Directory for saving checkpoint models')
-
+parser.add_argument('--max_chpt', default=10, type=int,
+                    help='Set maximum number of checkpoints to keep')
 parser.add_argument('--config',
                     help='Configuration file with priors and other needed values.')
+
 
 args = parser.parse_args()
 
@@ -181,8 +183,8 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1, 
         f"Epoch: {epoch}, Step: {i}, " +
         f"Average Loss: {avg_loss:.4f}, " +
         f"Average Regression Loss {avg_reg_loss:.4f}, " +
-        f"Average Classification Loss: {avg_clf_loss:.4f}" +
-        f"Precision: {collector.precision():.3f}" +
+        f"Average Classification Loss: {avg_clf_loss:.4f}, " +
+        f"Precision: {collector.precision():.3f}, " +
         f"Recall: {collector.recall():.3f}"
     )
 
@@ -348,6 +350,8 @@ if __name__ == '__main__':
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
 
     logging.info(f"Start training from epoch {last_epoch + 1}.")
+
+    chpts = SavePointManager(args.checkpoint_folder, args.max_chpt)
     for epoch in range(last_epoch + 1, args.num_epochs):
         scheduler.step()
         logging.info(
@@ -363,11 +367,10 @@ if __name__ == '__main__':
                 f"Epoch: {epoch}, " +
                 f"Validation Loss: {val_loss:.4f}, " +
                 f"Validation Regression Loss {val_regression_loss:.4f}, " +
-                f"Validation Classification Loss: {val_classification_loss:.4f}" +
-                f"Validation Precision: {precision:.3f}" +
+                f"Validation Classification Loss: {val_classification_loss:.4f}, " +
+                f"Validation Precision: {precision:.3f}, " +
                 f"Validation Recall: {recall:.3f}"
             )
-            model_path = os.path.join(args.checkpoint_folder, f"ssd-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.train()
             if torch.cuda.device_count() > 1:
                 state = {'epoch': epoch, 'state_dict': net.module.state_dict(),
@@ -375,5 +378,7 @@ if __name__ == '__main__':
             else:
                 state = {'epoch': epoch, 'state_dict': net.state_dict(),
                          'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
-            torch.save(state, model_path)
-            logging.info(f"Saved model {model_path}")
+
+            model_name=f"ssd-Epoch-{epoch}-Loss-{val_loss}.pth"
+            if chpts.save(state, model_name, val_loss):
+                logging.info(f"Saved model {model_name}")

@@ -78,3 +78,31 @@ def contains_nan(x):
     Return: True if minimum 0ne NaN value was found
     """
     return torch.isnan(x).nonzero().nelement() != 0
+
+
+class SavePointManager(object):
+    """ Manage the number of stored checkpoints.
+    """
+    def __init__(self, path, max_chpt):
+        self.path = path
+        self.max_num_chpt = max_chpt
+        self.files = dict()
+
+    def save(self, model_state, filename, loss):
+        """ Store model state, if loss is smaller than previous results or we did not reach the maximum allowed
+         number of model checkpoints.
+
+        :return: True if state was stored
+        """
+        saved_value = False
+        if len(self.files) < self.max_num_chpt:
+            torch.save(model_state, os.path.join(self.path, filename))
+            self.files[loss] = filename
+            saved_value = True
+        elif loss < max(self.files):
+            torch.save(model_state, os.path.join(self.path, filename))
+            os.remove(self.files.pop(max(self.files)))
+            self.files[loss] = filename
+            saved_value = True
+
+        return saved_value
