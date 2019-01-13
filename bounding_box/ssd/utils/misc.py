@@ -101,7 +101,7 @@ class SavePointManager(object):
             saved_value = True
         elif loss < max(self.files):
             torch.save(model_state, os.path.join(self.path, filename))
-            os.remove(self.files.pop(max(self.files)))
+            os.remove(os.path.join(self.path,self.files.pop(max(self.files))))
             self.files[loss] = filename
             saved_value = True
 
