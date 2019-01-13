@@ -55,18 +55,19 @@ class StatCollectorTrain(object):
                 if gt.shape[0] == 0:
                     self.false_positives += pred.shape[0]
                 elif pred.shape[0] == 0:
-                    self.false_negatives += 1
+                    self.false_negatives += len(gt)
                 else:
-                    gt_box = gt[0,0:4]
-                    ious = bbox_iou(gt_box, pred[:,0:4], device=self.device)
-                    pos_matches = torch.nonzero(ious > self.iou_threshold)
-                    num_matches = len(pos_matches)
-                    false_matches = len(ious) - num_matches
-                    if num_matches == 0:
-                        self.false_negatives += 1
-                    else:
-                        self.true_positives += num_matches
-                    self.false_positives += false_matches
+                    num_pos_matches = 0
+                    for gt_box in gt:
+                        ious = bbox_iou(gt_box[0:4], pred[:,0:4], device=self.device)
+                        pos_matches = torch.nonzero(ious > self.iou_threshold)
+                        num_pos_matches += len(pos_matches)
+                        if len(pos_matches) == 0:
+                            self.false_negatives += 1
+
+                    num_false_matches = len(pred) - num_pos_matches
+                    self.true_positives += num_pos_matches
+                    self.false_positives += num_false_matches
 
     def convert_to_absolute(self, prediction):
         anchor_pos = 0

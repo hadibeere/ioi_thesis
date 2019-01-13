@@ -62,7 +62,7 @@ class StatCollector(object):
                         ious = bbox_iou(gt_box[0:4].unsqueeze(0), pred[:,0:4], device=self.device)
                         pos_matches = torch.nonzero(ious > self.iou_threshold)
                         num_pos_matches += len(pos_matches)
-                        if num_pos_matches == 0:
+                        if len(pos_matches) == 0:
                             self.false_negatives += 1
 
                     num_false_matches = len(pred) - num_pos_matches
