@@ -31,8 +31,10 @@ parser = argparse.ArgumentParser(
 
 
 parser.add_argument('--dataset', help='Dataset directory path')
+parser.add_argument('--csv', default='stimulation.csv', help='Filename of annotation csv')
 parser.add_argument('--gt', default='area_tips', help="Choose ground truth type 'area_tips', 'one_tip', 'two_tips'")
 parser.add_argument('--validation_dataset', help='Dataset directory path')
+parser.add_argument('--val_csv', default='stimulation.csv', help='Filename of annotation csv for valaidation')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
@@ -237,10 +239,10 @@ if __name__ == '__main__':
 
     logging.info("Prepare training dataset.")
     if args.gt == 'area_tips':
-        train_dataset = BrainIOIDataset(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, border=args.border,
+        train_dataset = BrainIOIDataset(os.path.join(args.dataset, args.csv), args.dataset, border=args.border,
                                         num_channels=num_input, transform=train_transform,
                                         target_transform=target_transform)
-        val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset,
+        val_dataset = BrainIOIDataset(os.path.join(args.validation_dataset, args.val_csv), args.validation_dataset,
                                       num_channels=num_input, border=args.border, transform=test_transform,
                                       target_transform=target_transform)
     else:
@@ -249,10 +251,10 @@ if __name__ == '__main__':
         else:  # 'two_tips'
             use_all = True
 
-        train_dataset = IOIDatasetETips(os.path.join(args.dataset, 'stimulation.csv'), args.dataset, use_all=use_all,
+        train_dataset = IOIDatasetETips(os.path.join(args.dataset, args.csv), args.dataset, use_all=use_all,
                                         border=args.border, num_channels=num_input, transform=train_transform,
                                         target_transform=target_transform)
-        val_dataset = IOIDatasetETips(os.path.join(args.validation_dataset, 'stimulation.csv'), args.validation_dataset, use_all=use_all,
+        val_dataset = IOIDatasetETips(os.path.join(args.validation_dataset, args.val_csv), args.validation_dataset, use_all=use_all,
                                       border=args.border, num_channels=num_input, transform=test_transform,
                                       target_transform=target_transform)
 
