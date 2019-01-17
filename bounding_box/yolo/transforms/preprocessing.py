@@ -19,8 +19,7 @@ class TrainAugmentation:
             Resize((self.size, self.size)),
             ConvertFromInts(),
             Normalize(2**12-1),
-            ToTensor(),
-            PlotImg("/home/maggie/Dokumente/Diplomarbeit/tmp_results")
+            ToTensor()
         ])
         self.random_aug = [
             RandomRotate((-359, 359), background_color),

@@ -333,7 +333,7 @@ class Darknet(nn.Module):
                 # Output the result
                 if not self.training:
                     x = x.data
-                
+
                 x = predict_transform(x, inp_dim, anchors, num_classes, train = self.training, test=is_test)
                 
                 if type(x) == int:
