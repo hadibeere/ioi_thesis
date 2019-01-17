@@ -31,6 +31,10 @@ parser.add_argument('--log', help='Path of log file. If log is set the logging w
                                   'nothing will be logged.')
 parser.add_argument('--use_focal_loss', default=False, type=str2bool,
                     help='Use focal loss for classification')
+parser.add_argument('--checkpoint_folder', default='models/',
+                    help='Directory for saving checkpoint models')
+parser.add_argument('--max_chpt', default=10, type=int,
+                    help='Set maximum number of checkpoints to keep')
 
 
 args = parser.parse_args()
@@ -191,7 +195,7 @@ if __name__ == '__main__':
             state = {'epoch': epoch, 'state_dict': model.state_dict(),
                      'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
 
-        model_name = f"ssd-Epoch-{epoch}-Loss-{val_loss}.pth"
+        model_name = f"yolo-Epoch-{epoch}-Loss-{val_loss}.pth"
         if chpts.save(state, model_name, val_loss):
             logging.info(f"Saved model {model_name}")
 
