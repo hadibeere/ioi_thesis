@@ -112,6 +112,9 @@ if __name__ == '__main__':
         model.load_weights(args.weightsfile, stop=74)
         logging.info("Loaded original darknet weights.")
 
+    if torch.cuda.device_count() > 1:
+        net = torch.nn.DataParallel(model)
+
     model.to(device)
     model.train()
     num_classes = 1
