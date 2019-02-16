@@ -35,6 +35,8 @@ parser.add_argument('--checkpoint_folder', default='models/',
                     help='Directory for saving checkpoint models')
 parser.add_argument('--max_chpt', default=10, type=int,
                     help='Set maximum number of checkpoints to keep')
+parser.add_argument('--t_max', default=120, type=float,
+                    help='T_max value for Cosine Annealing Scheduler.')
 
 
 args = parser.parse_args()
@@ -90,7 +92,7 @@ def test(loader, model, criterion, device):
             output = model(data[0].to(device), is_test=True)
             ground_truth = data[1].to(device)
             metrics(output, ground_truth)
-            loss = criterion(ground_truth, output)
+            loss = criterion(output,ground_truth)
             running_loss += loss.item()
 
         i += 1
@@ -121,7 +123,7 @@ if __name__ == '__main__':
 
     net_options = model.net_info
 
-    num_workers=4
+    num_workers=2
     image_size=int(net_options['width'])
     ##Parse the config file
     batch_size = int(net_options['batch'])
@@ -169,10 +171,11 @@ if __name__ == '__main__':
 
         # Set optimizer
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=5e-4)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=decay, nesterov=True)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.t_max)#torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)#torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer)
     chpts = SavePointManager(args.checkpoint_folder, args.max_chpt)
     for epoch in range(args.epochs):
+        scheduler.step()
         #logging.info(
         #    f"Epoch: {epoch}, " +
         #    f"learning rate: {scheduler.get_lr()[0]}, "
@@ -194,7 +197,7 @@ if __name__ == '__main__':
             f"Validation Recall: {recall:.3f}"
         )
         model.train()
-        scheduler.step(val_loss)
+
         if torch.cuda.device_count() > 1:
             state = {'epoch': epoch, 'state_dict': model.module.state_dict(),
                      'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
