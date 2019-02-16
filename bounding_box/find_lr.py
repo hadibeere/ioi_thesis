@@ -145,6 +145,7 @@ from ssd.utils.misc import str2bool, Timer, freeze_net_layers
 from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
 
 from ssd.model.multibox_loss import MultiboxLoss
+from ssd.model.focal_loss import FocalLoss
 
 from torch.utils.data import DataLoader
 
@@ -287,6 +288,7 @@ net.to(DEVICE)
 
 criterion = MultiboxLoss(iou_threshold=0.5, neg_pos_ratio=3,
                              center_variance=0.1, size_variance=0.2, device=DEVICE, weights=config.weights)
+criterion = FocalLoss(gamma=2.0, alpha=0.25)
 
 start_lr = 0.00001
 end_lr = 10
@@ -322,7 +324,7 @@ num_epochs = 20 # 120
 # In[11]:
 
 
-alpha = 5.0
+alpha = 1.0
 lrs, losses = find_lr(train_loader, val_loader, net, start_lr, end_lr, 16, num_epochs, optimizer, alpha=alpha)
 plt.plot(lrs[:250], losses[:250], 'b-')
 

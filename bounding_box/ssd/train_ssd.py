@@ -329,7 +329,7 @@ if __name__ == '__main__':
                              center_variance=config.center_variance, size_variance=config.size_variance, device=DEVICE,
                              weights=config.weights)
     if args.use_focal_loss:
-        criterion = FocalLoss(gamma=config.gamma, alpha=config.alpha)
+        criterion = FocalLoss(gamma=config.gamma_fl, alpha=config.alpha_fl)
 
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "

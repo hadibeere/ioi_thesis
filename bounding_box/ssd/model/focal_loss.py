@@ -29,13 +29,13 @@ class FocalLoss(nn.Module):
         """
         num_classes = confidence.size(2)
 
-        tmp_conf = confidence.reshape(-1, num_classes)
-        tmp_label = labels
+        tmp_conf = confidence.view(-1, num_classes).clone()
+        tmp_label = labels.view(-1).clone()
 
-        pt_log = F.binary_cross_entropy_with_logits(tmp_conf, tmp_label, reduce=self.reduce)
+        pt_log = -F.cross_entropy(tmp_conf, tmp_label)
 
-        pt = torch.exp(-pt_log)
-        classification_loss = self.alpha * (1 - pt) ** self.gamma * pt_log
+        pt = torch.exp(pt_log)
+        classification_loss = -self.alpha * ((1 - pt) ** self.gamma * pt_log)
         pos_mask = labels > 0
         predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)
         gt_locations = gt_locations[pos_mask, :].reshape(-1, 4)
