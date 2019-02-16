@@ -16,6 +16,7 @@ neg_pos_ratio = 3
 size_variance = 0.2
 weights = [0.04,1.0]
 alpha = 1.0
+gamma = 2.0
 
 specs = [
     SSDSpec(19, 16, SSDBoxSizes(20, 65), [2, 3]),

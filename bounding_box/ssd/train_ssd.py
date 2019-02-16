@@ -19,6 +19,7 @@ from ssd.transforms.preprocessing import TrainAugmentation, TestTransform
 import ssd.transforms.transforms as tr
 
 from ssd.model.multibox_loss import MultiboxLoss
+from ssd.model.focal_loss import FocalLoss
 from ssd.utils.metrics import StatCollector
 
 from sampler import ImbalancedDatasetSampler
@@ -37,7 +38,8 @@ parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--val_csv', default='stimulation.csv', help='Filename of annotation csv for valaidation')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
-
+parser.add_argument('--use_focal_loss', default=False, type=str2bool,
+                    help='Use focal loss for classification')
 parser.add_argument('--log', help='Path of log file. If log is set the logging will be activated else '
                                   'nothing will be logged.')
 parser.add_argument('--num_channels', default=2, type=int,
@@ -326,6 +328,9 @@ if __name__ == '__main__':
     criterion = MultiboxLoss(iou_threshold=config.iou_threshold, neg_pos_ratio=config.neg_pos_ratio,
                              center_variance=config.center_variance, size_variance=config.size_variance, device=DEVICE,
                              weights=config.weights)
+    if args.use_focal_loss:
+        criterion = FocalLoss(gamma=config.gamma, alpha=config.alpha)
+
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
