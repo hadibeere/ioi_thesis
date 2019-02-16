@@ -47,12 +47,15 @@ class ToTensor(object):
         else:
             image = image.astype(np.float32).transpose((2, 0, 1))
 
-        return torch.from_numpy(image), torch.from_numpy(mask)
+        return torch.from_numpy(image), torch.from_numpy(mask).long()
 
 
 class RandomResizeCrop(object):
-    def __init__(self, margin=0.2):
+    def __init__(self,background_color=584, margin=0.3, min_factor=0.4, fit_gt=True):
         self.margin = margin
+        self.min_factor = min_factor
+        self.fit_gt = fit_gt
+        self.background= background_color
 
     """Randomly Crop the Image and preserve original ratio, resize the crop to original size.
         Arguments:
@@ -63,13 +66,34 @@ class RandomResizeCrop(object):
      """
     def __call__(self, image):
         h,w,c = image.shape
-        new_w = int(np.random.uniform(0.3 * w, w))
+        if self.fit_gt:
+            return self.crop_fit(image)
+        
+        new_w = int(np.random.uniform(self.min_factor * w, w))
         new_h = int(h * new_w / float(w))
-        crop_w = int(np.random.uniform(0 - self.margin * w, self.margin * w))
-        crop_h = int(np.random.uniform(0 - self.margin * h, self.margin * h))
-        crop_box = [crop_w, crop_h, crop_w+new_w, crop_h+new_h]
+        crop_x = int(np.random.uniform(0 - self.margin * w, self.margin * w))
+        crop_y = int(np.random.uniform(0 - self.margin * h, self.margin * h))
+        crop_box = [crop_x, crop_y, crop_x+new_w, crop_y+new_h]
         return cv2.resize(self.crop(image, crop_box), (w, h))
 
+    
+    def crop_fit(self,image):
+        h,w,c = image.shape
+        y,x = np.nonzero(image[:,:,-1])
+        min_w = (x.max() - x.min())
+        min_h = (y.max() - y.min())
+        new_w = int(np.random.uniform(min_w + self.min_factor * min_w, w))
+        new_h = int(h * new_w / float(w))
+        if new_h < min_h:
+            new_w = int(h * min_h / float(h))
+            new_h = min_h + int(min_h * self.min_factor)
+        diff_x = new_w - min_w
+        diff_y = new_h - min_h
+        crop_x = int(np.random.uniform(x.min()-diff_x, x.min()))
+        crop_y = int(np.random.uniform(y.min()-diff_y, y.min()))
+        crop_box = [crop_x, crop_y, crop_x+new_w, crop_y+new_h]
+        return cv2.resize(self.crop(image, crop_box), (w, h))
+    
     def crop(self,img, box):
         if box[0] < 0 or box[1] < 0 or box[2] > img.shape[1] or box[3] > img.shape[0]:
             img, box = self.pad_img_to_fit_box(img, box)
@@ -77,7 +101,8 @@ class RandomResizeCrop(object):
 
     def pad_img_to_fit_box(self, img, box):
         img = cv2.copyMakeBorder(img, - min(0, box[1]), max(box[3] - img.shape[0], 0),
-                -min(0, box[0]), max(box[2] - img.shape[1], 0),cv2.BORDER_CONSTANT)
+                -min(0, box[0]), max(box[2] - img.shape[1], 0),cv2.BORDER_CONSTANT, value=self.background)
+        img[img[:,:,-1]>1] = 0
         box[3] += -min(0, box[1])
         box[1] += -min(0, box[1])
         box[2] += -min(0, box[0])
@@ -106,7 +131,6 @@ class Rotate(object):
         transformation_matrix = cv2.getRotationMatrix2D((cols / 2, rows / 2), self.angle, 1)
         trans_image = cv2.warpAffine(image, transformation_matrix, (cols, rows),borderMode=cv2.BORDER_CONSTANT,
                            borderValue=self.fill_color)
-
         return trans_image
 
 
@@ -142,7 +166,7 @@ class RandomRescale(object):
         self.scale_range = scale_range
 
     def __call__(self, image):
-        h,w = image[:2]
+        h,w = image.shape[:2]
         scale = round(random.uniform(self.scale_range[0], self.scale_range[1]), 1)
         if scale <= 1.0:
             new_image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -153,7 +177,7 @@ class RandomRescale(object):
             bottom = diff_h - top
             left = int(diff_w/2)
             right = diff_w - left
-            new_image = cv2.copyMakeBorder(new_image, -top, bottom, -left, right, cv2.BORDER_CONSTANT)
+            new_image = cv2.copyMakeBorder(new_image, top, bottom, left, right, cv2.BORDER_CONSTANT)
         else:
             new_image = CenterCrop((h,w))(cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR))
 
@@ -172,10 +196,10 @@ class RandomFlip(object):
 
 
 class RandomContrast(object):
-    def __init__(self, lower=0.5, upper=1.5):
+    def __init__(self, lower=0.5, upper=1.5, max=2 ** 12 - 1):
         self.lower = lower
         self.upper = upper
-        self.max = 2**16-1
+        self.max = max
         assert self.upper >= self.lower, "contrast upper must be >= lower."
         assert self.lower >= 0, "contrast lower must be non-negative."
 
@@ -188,7 +212,7 @@ class RandomContrast(object):
 
 
 class RandomBrightness(object):
-    def __init__(self, delta=500, max=1000):
+    def __init__(self, delta=500, max=2 ** 12 - 1):
         self.min = 0.0
         self.max = max
         assert delta >= self.min
@@ -198,7 +222,7 @@ class RandomBrightness(object):
     def __call__(self, image):
         delta = random.randrange(-self.delta, self.delta)
         new_image = image.astype(np.float32)
-        new_image += delta
+        new_image[:,:,:-1] += delta
         new_image[new_image < self.min] = self.min
         new_image[new_image > self.max] = self.max
         return new_image.astype(np.uint16)
@@ -207,8 +231,8 @@ class RandomBrightness(object):
 class CenterCrop(object):
     def __init__(self, size):
         if isinstance(size,tuple):
-            self.width = size(1)
-            self.height = size(0)
+            self.width = size[1]
+            self.height = size[0]
         else:
             self.width = self.height = size
 
@@ -216,6 +240,26 @@ class CenterCrop(object):
         h, w = image.shape[:2]
         assert h >= self.height
         assert w >= self.width
-        x = int(w/2) - self.width/2
-        y = int(h/2) - self.height/2
+        x = int(w/2 - self.width/2)
+        y = int(h/2 - self.height/2)
         return image[y:y+self.height, x:x+self.width, :]
+
+
+class SquarePad(object):
+    """Pad image to be square
+    """
+    def __init__(self, fill=0):
+        self.fill = fill
+
+    def __call__(self, image):
+        height, width = image.shape[:2]
+        desired_size = max(height, width)
+
+        delta_w = desired_size - width
+        delta_h = desired_size - height
+        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+        left, right = delta_w // 2, delta_w - (delta_w // 2)
+        new_img = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT,
+                                    value=self.fill)
+        new_img[new_img[:,:,-1]>1] = 0
+        return new_img

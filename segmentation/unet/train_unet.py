@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 import os
 from unet.model.unet import UNet
+from unet.loss import *
 from ssd.utils.misc import SavePointManager
 
 from unet.dataset.BrainIOIDataset import IOIDatasetETips
@@ -82,7 +83,6 @@ def train(loader, net, optimizer, criterion, device):
         images, mask = data
         images = images.to(device)
         mask = mask.to(device)
-
         optimizer.zero_grad()
         prediction = net(images)  # [N, 2, H, W]
         prediction = pad_prediction(prediction,mask)
@@ -149,14 +149,15 @@ if __name__ == '__main__':
     logging.info("validation dataset size: {}".format(len(val_dataset)))
     val_loader = DataLoader(val_dataset, args.batch_size,num_workers=args.num_workers,shuffle=False)
 
-    net = UNet(n_classes=1, padding=True, up_mode='upsample')
+    net = UNet(n_classes=2, padding=True, up_mode='upsample')
     if torch.cuda.device_count() > 1:
         net = torch.nn.DataParallel(net)
 
     net.to(device)
     optim = torch.optim.Adam(net.parameters(),lr=args.lr, weight_decay=1e-4)
     #weights = torch.Tensor([0.000003,1.0]).to(device)
-    criterion = torch.nn.BCEWithLogitsLoss()#torch.nn.CrossEntropyLoss(weights)
+    criterion = CombLoss()
+    #torch.nn.BCEWithLogitsLoss()#torch.nn.CrossEntropyLoss(weights)
 
     chpts = SavePointManager(args.checkpoint_folder, args.max_chpt)
     for epoch in range(0, args.epochs):
